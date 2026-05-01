@@ -1,9 +1,12 @@
 {
   "manifest_version": 2,
-  "name": "Replace A with B",
+  "name": "DTU Lautschrift-Übersetzer",
   "version": "1.0",
-  "description": "Ersetzt alle 'a' durch 'b' auf Webseiten.",
+  "description": "Ersetzt Phonetik-Blöcke von DDO zu Kiel,SchwaTilgung auf Webseiten.",
   "permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    "src/translationTable.csv"
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
