@@ -91,7 +91,7 @@ function parseCSVLine(line: string): string[] {
         }
     }
 
-    // Letztesfeld hinzufügen
+    // Letztes feld hinzufügen
     fields.push(current.trim().replace(/^"|"$/g, ''));
 
     return fields;

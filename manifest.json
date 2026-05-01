@@ -3,13 +3,13 @@
   "name": "DTU Lautschrift-Übersetzer",
   "version": "1.0",
   "description": "Ersetzt Phonetik-Blöcke von DDO zu Kiel,SchwaTilgung auf Webseiten.",
-  "permissions": ["<all_urls>"],
+  "permissions": ["https://ordnet.dk/*"],
   "web_accessible_resources": [
     "src/translationTable.csv"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://ordnet.dk/*"],
       "css": ["src/styles.css"],
       "js": ["dist/content-script.js"],
       "run_at": "document_end"
