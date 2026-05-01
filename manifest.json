@@ -14,6 +14,14 @@
       "js": ["dist/content-script.js"],
       "run_at": "document_end"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "data_collection_permissions": {
+        "required": ["websiteContent"],
+        "optional": []
+      }
+    }
+  }
 }
 
