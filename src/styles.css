@@ -3,16 +3,18 @@
  * DTU Lautschrift-Übersetzer Firefox-Erweiterung
  */
 
-/* Rosa Hintergrund für ersetzte lydskrift-Elemente */
-.ext-replaced {
-    background-color: #FFB6D9;
-    padding: 2px 4px;
-    border-radius: 3px;
-    transition: background-color 0.3s ease;
+/* Nur abgerundete Kanten für erkannte lydskrift-Elemente */
+.ext-detected {
+    border-radius: 999px;
 }
 
-/* Leicht dunkleres Rosa beim Hover */
-.ext-replaced:hover {
-    background-color: #FF99CC;
+/* Rosa Hintergrund für erfolgreich ersetzte lydskrift-Elemente */
+.ext-replaced {
+    background-color: #FFB6D9;
+}
+
+/* Roter Hintergrund für Fehlfälle */
+.ext-error {
+    background-color: #FF9999;
 }
 

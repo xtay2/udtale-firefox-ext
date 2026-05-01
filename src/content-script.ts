@@ -15,17 +15,37 @@ interface TranslationTable {
 const translationTable: TranslationTable = {};
 let ddoSystem: string[] = [];
 let kielSystem: string[] = [];
+let sourceTokens: string[] = [];
+let sourceTokenLookup = new Map<string, string>();
+let translationsReady = false;
+
+const DETECTED_CLASS = 'ext-detected';
+const REPLACED_CLASS = 'ext-replaced';
+const ERROR_CLASS = 'ext-error';
 
 /**
  * Lädt die CSV-Übersetzungstabelle
  */
 async function loadTranslationTable(): Promise<void> {
     try {
+        translationsReady = false;
+        ddoSystem = [];
+        kielSystem = [];
+        sourceTokens = [];
+        sourceTokenLookup = new Map<string, string>();
+
+        for (const key of Object.keys(translationTable)) {
+            delete translationTable[key];
+        }
+
         const url = browser.runtime.getURL('src/translationTable.csv');
         const response = await fetch(url);
         const csv = await response.text();
         parseTranslationTable(csv);
+        buildTranslationIndex();
+        translationsReady = ddoSystem.length > 0 && kielSystem.length > 0;
     } catch (error) {
+        translationsReady = false;
         console.error('Fehler beim Laden der Übersetzungstabelle:', error);
     }
 }
@@ -66,8 +86,42 @@ function parseTranslationTable(csv: string): void {
         }
     }
 
-    console.log('Übersetzungstabelle geladen. DDO-System hat', ddoSystem.length, 'Zeichen');
-    console.log('Kiel,SchwaTilgung-System hat', kielSystem.length, 'Zeichen');
+    console.log('Übersetzungstabelle geladen. DDO-System hat', ddoSystem.length, 'Einträge');
+    console.log('Kiel,SchwaTilgung-System hat', kielSystem.length, 'Einträge');
+}
+
+/**
+ * Baut den lokalen DDO→Kiel-Lookup auf Basis der Tabellenreihenfolge auf.
+ */
+function buildTranslationIndex(): void {
+    sourceTokenLookup = new Map<string, string>();
+    const firstOccurrence = new Map<string, number>();
+
+    const limit = Math.min(ddoSystem.length, kielSystem.length);
+    for (let i = 0; i < limit; i++) {
+        const source = ddoSystem[i];
+        const destination = kielSystem[i];
+
+        if (!source) {
+            continue;
+        }
+
+        if (!sourceTokenLookup.has(source)) {
+            sourceTokenLookup.set(source, destination ?? source);
+            firstOccurrence.set(source, i);
+        }
+    }
+
+    sourceTokens = Array.from(sourceTokenLookup.keys()).sort((a, b) => {
+        const lengthDiff = b.length - a.length;
+        if (lengthDiff !== 0) {
+            return lengthDiff;
+        }
+
+        const aIndex = firstOccurrence.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const bIndex = firstOccurrence.get(b) ?? Number.MAX_SAFE_INTEGER;
+        return aIndex - bIndex;
+    });
 }
 
 /**
@@ -91,7 +145,7 @@ function parseCSVLine(line: string): string[] {
         }
     }
 
-    // Letztes feld hinzufügen
+    // Letztes Feld hinzufügen
     fields.push(current.trim().replace(/^"|"$/g, ''));
 
     return fields;
@@ -100,79 +154,139 @@ function parseCSVLine(line: string): string[] {
 /**
  * Übersetzt einen Text von DDO zu Kiel,SchwaTilgung
  */
-function translateDDOToKiel(text: string): string {
-    if (ddoSystem.length === 0 || kielSystem.length === 0) {
-        console.warn('Translations-Systeme nicht geladen');
-        return text;
+function translateDDOToKiel(text: string): string | null {
+    if (!translationsReady || sourceTokens.length === 0) {
+        return null;
     }
 
     let result = '';
+    let matchedAny = false;
 
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
+    for (let i = 0; i < text.length;) {
+        let matchedSource = '';
+        let matchedDestination = '';
 
-        // Suche Zeichen in DDO-System
-        let found = false;
-        for (let j = 0; j < ddoSystem.length; j++) {
-            if (ddoSystem[j] === char) {
-                // Ersetze mit entsprechendem Zeichen aus Kiel,SchwaTilgung
-                result += kielSystem[j] || char;
-                found = true;
+        for (let j = 0; j < sourceTokens.length; j++) {
+            const source = sourceTokens[j];
+
+            if (source.length > 0 && text.startsWith(source, i)) {
+                matchedSource = source;
+                matchedDestination = sourceTokenLookup.get(source) ?? source;
                 break;
             }
         }
 
-        if (!found) {
-            // Wenn Zeichen nicht gefunden, behalte es unverändert
-            result += char;
+        if (matchedSource !== '') {
+            matchedAny = true;
+            result += matchedDestination;
+            i += matchedSource.length;
+        } else {
+            result += text[i];
+            i += 1;
         }
     }
 
+    if (!matchedAny) {
+        return null;
+    }
+
     return result;
+}
+
+function collectTranslatableTextNodes(root: Node): Text[] {
+    const textNodes: Text[] = [];
+
+    function visit(node: Node): void {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const textNode = node as Text;
+            const parentElement = textNode.parentElement;
+            const text = textNode.textContent ?? '';
+
+            if (parentElement === null || parentElement.classList.contains('diskret')) {
+                return;
+            }
+
+            if (text.trim().length === 0) {
+                return;
+            }
+
+            textNodes.push(textNode);
+            return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return;
+        }
+
+        const element = node as Element;
+        if (element.classList.contains('diskret')) {
+            return;
+        }
+
+        const children = Array.from(node.childNodes);
+        for (let i = 0; i < children.length; i++) {
+            visit(children[i]);
+        }
+    }
+
+    visit(root);
+    return textNodes;
+}
+
+function setLydskriftState(element: Element, state: 'replaced' | 'error' | 'none'): void {
+    element.classList.add(DETECTED_CLASS);
+    element.classList.remove(REPLACED_CLASS, ERROR_CLASS);
+
+    if (state === 'replaced') {
+        element.classList.add(REPLACED_CLASS);
+    } else if (state === 'error') {
+        element.classList.add(ERROR_CLASS);
+    }
 }
 
 /**
  * Ersetzt die Lautschrift in den lydskrift-Spans
  */
 function replaceLydskriftText(): void {
-    const lydskriftSpans = document.querySelectorAll('.lydskrift');
+    const lydskriftElements = document.querySelectorAll<HTMLElement>('.lydskrift');
     let replacedCount = 0;
+    let errorCount = 0;
 
-    lydskriftSpans.forEach((span) => {
-        // Das Structure ist normalerweise:
-        // <span class="lydskrift">
-        //   <span class="diskret">[</span>
-        //   PHONETIC_TEXT
-        //   <span class="diskret">]</span>
-        //   ... rest of content (audio, img, etc.)
-        // </span>
+    lydskriftElements.forEach((element) => {
+        const textNodes = collectTranslatableTextNodes(element);
 
-        // Iteriere durch die Kindknoten
-        const childNodes = Array.from(span.childNodes);
-        let textWasReplaced = false;
+        if (textNodes.length === 0) {
+            setLydskriftState(element, 'error');
+            errorCount++;
+            return;
+        }
 
-        for (let i = 0; i < childNodes.length; i++) {
-            const node = childNodes[i];
+        let matchedAny = false;
 
-            // Prüfe ob es ein Textknoten ist
-            if (node.nodeType === Node.TEXT_NODE) {
-                const text = node.textContent || '';
-                // Überspringe reine Whitespace-Knoten
-                if (text.trim().length > 0) {
-                    node.textContent = translateDDOToKiel(text);
-                    textWasReplaced = true;
-                }
+        for (let i = 0; i < textNodes.length; i++) {
+            const node = textNodes[i];
+            const originalText = node.textContent ?? '';
+            const translated = translateDDOToKiel(originalText);
+
+            if (translated === null) {
+                continue;
             }
+
+            node.textContent = translated;
+            matchedAny = true;
         }
 
-        // Füge CSS-Klasse hinzu, wenn Text ersetzt wurde
-        if (textWasReplaced) {
-            span.classList.add('ext-replaced');
-            replacedCount++;
+        if (!matchedAny) {
+            setLydskriftState(element, 'error');
+            errorCount++;
+            return;
         }
+
+        setLydskriftState(element, 'replaced');
+        replacedCount++;
     });
 
-    console.log(`Phonetik-Spans wurden aktualisiert. ${replacedCount} Elemente wurden markiert.`);
+    console.log(`Phonetik-Spans wurden aktualisiert. ${replacedCount} Elemente wurden erfolgreich übersetzt, ${errorCount} Elemente markiert.`);
 }
 
 /**
