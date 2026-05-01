@@ -1,0 +1,18 @@
+/**
+ * Styling für die ersetzte Lautschrift
+ * DTU Lautschrift-Übersetzer Firefox-Erweiterung
+ */
+
+/* Rosa Hintergrund für ersetzte lydskrift-Elemente */
+.ext-replaced {
+    background-color: #FFB6D9;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.3s ease;
+}
+
+/* Leicht dunkleres Rosa beim Hover */
+.ext-replaced:hover {
+    background-color: #FF99CC;
+}
+

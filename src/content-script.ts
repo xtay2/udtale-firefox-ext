@@ -136,6 +136,7 @@ function translateDDOToKiel(text: string): string {
  */
 function replaceLydskriftText(): void {
     const lydskriftSpans = document.querySelectorAll('.lydskrift');
+    let replacedCount = 0;
 
     lydskriftSpans.forEach((span) => {
         // Das Structure ist normalerweise:
@@ -148,6 +149,7 @@ function replaceLydskriftText(): void {
 
         // Iteriere durch die Kindknoten
         const childNodes = Array.from(span.childNodes);
+        let textWasReplaced = false;
 
         for (let i = 0; i < childNodes.length; i++) {
             const node = childNodes[i];
@@ -158,12 +160,19 @@ function replaceLydskriftText(): void {
                 // Überspringe reine Whitespace-Knoten
                 if (text.trim().length > 0) {
                     node.textContent = translateDDOToKiel(text);
+                    textWasReplaced = true;
                 }
             }
         }
+
+        // Füge CSS-Klasse hinzu, wenn Text ersetzt wurde
+        if (textWasReplaced) {
+            span.classList.add('ext-replaced');
+            replacedCount++;
+        }
     });
 
-    console.log('Phonetik-Spans wurden aktualisiert');
+    console.log(`Phonetik-Spans wurden aktualisiert. ${replacedCount} Elemente wurden markiert.`);
 }
 
 /**

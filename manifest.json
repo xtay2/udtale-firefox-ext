@@ -10,6 +10,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "css": ["src/styles.css"],
       "js": ["dist/content-script.js"],
       "run_at": "document_end"
     }
