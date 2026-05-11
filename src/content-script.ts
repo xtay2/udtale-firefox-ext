@@ -22,6 +22,7 @@ let translationsReady = false;
 const DETECTED_CLASS = 'ext-detected';
 const REPLACED_CLASS = 'ext-replaced';
 const ERROR_CLASS = 'ext-error';
+const COPIED_CLASS = 'ext-copied';
 
 /**
  * Lädt die CSV-Übersetzungstabelle
@@ -245,6 +246,28 @@ function setLydskriftState(element: Element, state: 'replaced' | 'error' | 'none
 }
 
 /**
+ * Fügt einem ersetzten Element einen Click-Handler hinzu,
+ * der den Text in die Zwischenablage kopiert und kurz grün aufleuchtet.
+ */
+function addClickToCopy(element: HTMLElement): void {
+    if (element.dataset.copyListenerAttached) {
+        return;
+    }
+    element.dataset.copyListenerAttached = 'true';
+    element.addEventListener('click', () => {
+        const text = element.textContent.trim() ?? '';
+        navigator.clipboard.writeText(text).then(() => {
+            element.classList.add(COPIED_CLASS);
+            setTimeout(() => {
+                element.classList.remove(COPIED_CLASS);
+            }, 1000);
+        }).catch((error) => {
+            console.error('Fehler beim Kopieren in die Zwischenablage:', error);
+        });
+    });
+}
+
+/**
  * Ersetzt die Lautschrift in den lydskrift-Spans
  */
 function replaceLydskriftText(): void {
@@ -283,6 +306,7 @@ function replaceLydskriftText(): void {
         }
 
         setLydskriftState(element, 'replaced');
+        addClickToCopy(element);
         replacedCount++;
     });
 
