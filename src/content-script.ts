@@ -255,7 +255,7 @@ function addClickToCopy(element: HTMLElement): void {
     }
     element.dataset.copyListenerAttached = 'true';
     element.addEventListener('click', () => {
-        const text = element.textContent ?? '';
+        const text = element.textContent.trim() ?? '';
         navigator.clipboard.writeText(text).then(() => {
             element.classList.add(COPIED_CLASS);
             setTimeout(() => {
