@@ -271,11 +271,13 @@ function addClickToCopy(element: HTMLElement): void {
  * Ersetzt die Lautschrift in den lydskrift-Spans
  */
 function replaceLydskriftText(): void {
+    const kildeElements = document.querySelectorAll<HTMLElement>('.lydskrift .kilde');
     const lydskriftElements = document.querySelectorAll<HTMLElement>('.lydskrift');
+    const elems = kildeElements.length > 0 ? kildeElements : lydskriftElements;
     let replacedCount = 0;
     let errorCount = 0;
 
-    lydskriftElements.forEach((element) => {
+    elems.forEach((element) => {
         const textNodes = collectTranslatableTextNodes(element);
 
         if (textNodes.length === 0) {
